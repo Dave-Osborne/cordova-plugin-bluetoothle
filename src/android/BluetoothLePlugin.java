@@ -835,8 +835,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
       callbackContext.error(returnObj);
     }
 
-    UUID characteristicUuid = getUUID(obj.optString("characteristic", null));
-    BluetoothGattCharacteristic characteristic = service.getCharacteristic(characteristicUuid);
+    BluetoothGattCharacteristic characteristic = getCharacteristicForProperty(obj, service, BluetoothGattCharacteristic.PROPERTY_NOTIFY);
     if (characteristic == null) {
       JSONObject returnObj = new JSONObject();
       addProperty(returnObj, "error", "characteristic");
@@ -1651,7 +1650,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
         boolean bool = ((Boolean) localMethod.invoke(localBluetoothGatt, new Object[0])).booleanValue();
         return bool;
       }
-    } 
+    }
     catch (Exception localException) {
       Log.e("BLE", "An exception occured while refreshing device cache");
     }
@@ -1694,7 +1693,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
       return false;
     }
 
-    BluetoothGattCharacteristic characteristic = getCharacteristic(obj, service);
+    BluetoothGattCharacteristic characteristic = getCharacteristicForProperty(obj, service, BluetoothGattCharacteristic.PROPERTY_READ);
 
     if (isNotCharacteristic(characteristic, device, callbackContext)) {
       return false;
@@ -1955,7 +1954,7 @@ public class BluetoothLePlugin extends CordovaPlugin {
       return false;
     }
 
-    BluetoothGattCharacteristic characteristic = getCharacteristic(obj, service);
+    BluetoothGattCharacteristic characteristic = getCharacteristicForProperty(obj, service, BluetoothGattCharacteristic.PROPERTY_WRITE);
 
     if (isNotCharacteristic(characteristic, device, callbackContext)) {
       return false;
@@ -3022,6 +3021,38 @@ public class BluetoothLePlugin extends CordovaPlugin {
     }
 
     return characteristic;
+  }
+
+  private ArrayList<BluetoothGattCharacteristic> getCharacteristicsForUuid(UUID uuid, BluetoothGattService service) {
+    List<BluetoothGattCharacteristic> characteristicsForService = service.getCharacteristics();
+    ArrayList<BluetoothGattCharacteristic> characteristics = new ArrayList<BluetoothGattCharacteristic>();
+
+    for (BluetoothGattCharacteristic characteristic : characteristicsForService) {
+      if (characteristic.getUuid().equals(uuid)) {
+        characteristics.add(characteristic);
+      }
+    }
+
+    return characteristics;
+  }
+
+  private BluetoothGattCharacteristic getCharacteristicForProperty(JSONObject obj, BluetoothGattService service, int propertyType) {
+    UUID uuid = getUUID(obj.optString("characteristic", null));
+    ArrayList<BluetoothGattCharacteristic> characteristics = getCharacteristicsForUuid(uuid, service);
+
+    if (characteristics.size() == 1) {
+      return characteristics.get(0);
+    } else {
+      for (BluetoothGattCharacteristic characteristic : characteristics) {
+        int properties = characteristic.getProperties();
+
+        if ((properties & propertyType) == propertyType) {
+          return characteristic;
+        }
+      }
+    }
+
+    return null;
   }
 
   private BluetoothGattDescriptor getDescriptor(JSONObject obj, BluetoothGattCharacteristic characteristic) {
